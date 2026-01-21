@@ -33,7 +33,7 @@ User Query → Gemini LLM (Query Understanding) → monday.com API
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/SahilKhan101/intelliquery.git
    cd intelliquery
    ```
 
