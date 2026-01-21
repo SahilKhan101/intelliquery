@@ -238,30 +238,52 @@ def main():
                 if debug_mode:
                     st.json(intent)
                 
-                # 2. Execute Analysis based on Intent
-                response_text = ""
-                
+                # 2. Handle Clarification
+                if intent.get('clarification_needed') and intent.get('clarifying_questions'):
+                    st.warning("I need a bit more detail to be precise:")
+                    for q in intent['clarifying_questions']:
+                        st.write(f"- {q}")
+                    
+                    # Continue anyway if we have a valid intent, but warn the user
+                    st.markdown("---")
+                    st.info(f"Showing **{intent['intent'].replace('_', ' ').title()}** based on my best guess:")
+
+                # 3. Execute Analysis based on Intent
                 if intent['intent'] == 'pipeline_analysis':
                     metrics = system['bi'].analyze_pipeline(data['deals'], intent.get('filters'))
                     st.write(f"### Pipeline Analysis")
-                    st.metric("Total Value", f"₹{metrics.get('total_pipeline_value', 0):,.0f}")
-                    st.dataframe(pd.DataFrame(metrics.get('top_deals', [])))
+                    
+                    c1, c2 = st.columns(2)
+                    c1.metric("Total Pipeline Value", f"₹{metrics.get('total_pipeline_value', 0):,.0f}")
+                    c2.metric("Deal Count", metrics.get('deal_count', 0))
+                    
+                    st.subheader("Top Deals")
+                    st.dataframe(pd.DataFrame(metrics.get('top_deals', [])), use_container_width=True)
                     
                 elif intent['intent'] == 'revenue_analysis':
                     metrics = system['bi'].revenue_analysis(data['orders'], intent.get('filters'))
                     st.write(f"### Revenue Analysis")
-                    st.metric("Total Billed", f"₹{metrics.get('total_billed', 0):,.0f}")
+                    
+                    c1, c2 = st.columns(2)
+                    c1.metric("Total Billed", f"₹{metrics.get('total_billed', 0):,.0f}")
+                    c2.metric("Total Collected", f"₹{metrics.get('total_collected', 0):,.0f}")
+                    
+                    st.subheader("Revenue by Sector")
                     st.bar_chart(metrics.get('revenue_by_sector', {}))
                     
                 elif intent['intent'] == 'risk_assessment':
                     risks = system['bi'].risk_assessment(data['deals'], data['orders'])
                     st.write(f"### Risk Assessment")
                     st.write(f"Found {risks['total_risks']} potential risks.")
-                    st.dataframe(pd.DataFrame(risks['risk_list']))
+                    
+                    risk_df = pd.DataFrame(risks['risk_list'])
+                    if not risk_df.empty:
+                        st.dataframe(risk_df, use_container_width=True)
+                    else:
+                        st.success("No major risks found!")
                     
                 else:
                     st.write("I analyzed your data based on your query.")
-                    # Fallback to general search or summary
                     st.info("Showing general dashboard for context:")
                     render_pipeline_dashboard(data, system['bi'])
 

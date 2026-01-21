@@ -1,11 +1,14 @@
 """
 Configuration settings for IntelliQuery
 """
+# Load environment variables from project root
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Get absolute path to .env file
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+dotenv_path = os.path.join(project_root, '.env')
+load_dotenv(dotenv_path)
 
 class Config:
     """Application configuration"""
@@ -18,7 +21,8 @@ class Config:
     
     # Google Gemini Configuration
     GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-    GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+    # Use a specific version that is known to work with the API
+    GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash-001')
     
     # Application Settings
     APP_TITLE = os.getenv('APP_TITLE', 'IntelliQuery - Business Intelligence Agent')
