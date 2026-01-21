@@ -94,36 +94,24 @@ def parse_date_flexible(date_value: Union[str, int, float, datetime]) -> Optiona
     return None
 
 
-def get_quarter(date_obj: Optional[datetime]) -> Optional[str]:
+def get_quarter(date_obj: Union[datetime, pd.Timestamp]) -> str:
     """
-    Get quarter string from datetime (e.g., "Q1 2026")
-    
-    Args:
-        date_obj: datetime object
+    Get quarter string (e.g., 'Q1 2024') from date
+    """
+    if not date_obj or pd.isna(date_obj):
+        return "Unknown"
         
-    Returns:
-        Quarter string or None
-    """
-    if date_obj is None:
-        return None
-    
     quarter = (date_obj.month - 1) // 3 + 1
     return f"Q{quarter} {date_obj.year}"
 
 
-def get_month_year(date_obj: Optional[datetime]) -> Optional[str]:
+def get_month_year(date_obj: Union[datetime, pd.Timestamp]) -> str:
     """
-    Get month-year string from datetime (e.g., "Jan 2026")
-    
-    Args:
-        date_obj: datetime object
+    Get month-year string (e.g., 'Jan 2024') from date
+    """
+    if not date_obj or pd.isna(date_obj):
+        return "Unknown"
         
-    Returns:
-        Month-year string or None
-    """
-    if date_obj is None:
-        return None
-    
     return date_obj.strftime("%b %Y")
 
 
