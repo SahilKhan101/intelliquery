@@ -103,7 +103,7 @@ def load_data(_system):
         return None
 
 
-def render_pipeline_dashboard(data: Dict, bi_engine: BIEngine):
+def render_pipeline_dashboard(data: Dict, bi_engine: BIEngine, key_prefix: str = ""):
     """Render pipeline analysis dashboard"""
     st.subheader("📊 Pipeline Analysis")
     
@@ -123,16 +123,16 @@ def render_pipeline_dashboard(data: Dict, bi_engine: BIEngine):
         st.markdown("##### Deals by Stage")
         stage_df = pd.DataFrame(list(metrics['deals_by_stage'].items()), columns=['Stage', 'Count'])
         fig = px.bar(stage_df, x='Count', y='Stage', orientation='h', color='Count')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_pipeline_stage")
         
     with col2:
         st.markdown("##### Probability Distribution")
         prob_df = pd.DataFrame(list(metrics['deals_by_probability'].items()), columns=['Probability', 'Count'])
         fig = px.pie(prob_df, values='Count', names='Probability', hole=0.4)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_pipeline_prob")
 
 
-def render_revenue_dashboard(data: Dict, bi_engine: BIEngine):
+def render_revenue_dashboard(data: Dict, bi_engine: BIEngine, key_prefix: str = ""):
     """Render revenue analysis dashboard"""
     st.subheader("💰 Revenue & Collections")
     
@@ -151,13 +151,65 @@ def render_revenue_dashboard(data: Dict, bi_engine: BIEngine):
         st.markdown("##### Revenue by Sector")
         sector_df = pd.DataFrame(list(metrics['revenue_by_sector'].items()), columns=['Sector', 'Revenue'])
         fig = px.pie(sector_df, values='Revenue', names='Sector')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_rev_sector")
         
     with col2:
         st.markdown("##### Monthly Billing Trend")
         trend_df = pd.DataFrame(list(metrics['monthly_trend'].items()), columns=['Month', 'Billed'])
         fig = px.line(trend_df, x='Month', y='Billed', markers=True)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_rev_trend")
+
+
+def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict, key_prefix: str = ""):
+    """Render the analysis result based on intent and metrics"""
+    
+    # Handle Clarification
+    if intent.get('clarification_needed') and intent.get('clarifying_questions'):
+        st.warning("I need a bit more detail to be precise:")
+        for q in intent['clarifying_questions']:
+            st.write(f"- {q}")
+        st.markdown("---")
+        st.info(f"Showing **{intent['intent'].replace('_', ' ').title()}** based on my best guess:")
+
+    if intent['intent'] == 'pipeline_analysis':
+        st.write(f"### Pipeline Analysis")
+        
+        c1, c2 = st.columns(2)
+        c1.metric("Total Pipeline Value", f"₹{metrics.get('total_pipeline_value', 0):,.0f}")
+        c2.metric("Deal Count", metrics.get('deal_count', 0))
+        
+        st.subheader("Top Deals")
+        st.dataframe(pd.DataFrame(metrics.get('top_deals', [])), use_container_width=True)
+        
+    elif intent['intent'] == 'revenue_analysis':
+        st.write(f"### Revenue Analysis")
+        
+        c1, c2 = st.columns(2)
+        c1.metric("Total Billed", f"₹{metrics.get('total_billed', 0):,.0f}")
+        c2.metric("Total Collected", f"₹{metrics.get('total_collected', 0):,.0f}")
+        
+        st.subheader("Revenue by Sector")
+        # Use Plotly for better control and unique keys
+        sector_data = metrics.get('revenue_by_sector', {})
+        if sector_data:
+            sector_df = pd.DataFrame(list(sector_data.items()), columns=['Sector', 'Revenue'])
+            fig = px.bar(sector_df, x='Sector', y='Revenue', color='Sector')
+            st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_analysis_rev_sector")
+        
+    elif intent['intent'] == 'risk_assessment':
+        st.write(f"### Risk Assessment")
+        st.write(f"Found {metrics.get('total_risks', 0)} potential risks.")
+        
+        risk_df = pd.DataFrame(metrics.get('risk_list', []))
+        if not risk_df.empty:
+            st.dataframe(risk_df, use_container_width=True)
+        else:
+            st.success("No major risks found!")
+            
+    else:
+        st.write("I analyzed your data based on your query.")
+        st.info("Showing general dashboard for context:")
+        render_pipeline_dashboard(data, system['bi'], key_prefix=f"{key_prefix}_fallback")
 
 
 def main():
@@ -196,19 +248,32 @@ def main():
     # Data Quality Warning
     with st.expander("⚠️ Data Quality Report"):
         st.markdown(data['quality_report'])
+        
+    # Initialize Chat History
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    
+    # Display Chat History
+    for idx, message in enumerate(st.session_state.messages):
+        with st.chat_message(message["role"]):
+            if message["role"] == "user":
+                st.write(message["content"])
+            else:
+                # Render the stored analysis result with unique key
+                render_analysis_result(message["intent"], message["metrics"], system, data, key_prefix=f"hist_{idx}")
     
     # Query Interface
     query = st.chat_input("Ask a question about your business data...")
     
-    # Default View (Dashboard)
-    if not query:
+    # Default View (Dashboard) - Only show if no history and no current query
+    if not query and not st.session_state.messages:
         tab1, tab2, tab3 = st.tabs(["Pipeline", "Revenue", "Risks"])
         
         with tab1:
-            render_pipeline_dashboard(data, system['bi'])
+            render_pipeline_dashboard(data, system['bi'], key_prefix="dash_pipeline")
             
         with tab2:
-            render_revenue_dashboard(data, system['bi'])
+            render_revenue_dashboard(data, system['bi'], key_prefix="dash_revenue")
             
         with tab3:
             st.subheader("🚨 Risk Assessment")
@@ -224,68 +289,41 @@ def main():
                 st.markdown(f":{color}[**{risk['type']}**] ({risk['id']}): {risk['message']}")
     
     # Query Processing
-    else:
-        # Display User Query
+    if query:
+        # Add user message to history
+        st.session_state.messages.append({"role": "user", "content": query})
+        
+        # Display User Query (immediately)
         with st.chat_message("user"):
             st.write(query)
             
         # Process Query
         with st.chat_message("assistant"):
             with st.spinner("Analyzing..."):
-                # 1. Parse Query
-                intent = system['parser'].parse_query(query)
+                # 1. Parse Query (pass history for context)
+                intent = system['parser'].parse_query(query, history=st.session_state.messages[:-1])
                 
                 if debug_mode:
                     st.json(intent)
                 
-                # 2. Handle Clarification
-                if intent.get('clarification_needed') and intent.get('clarifying_questions'):
-                    st.warning("I need a bit more detail to be precise:")
-                    for q in intent['clarifying_questions']:
-                        st.write(f"- {q}")
-                    
-                    # Continue anyway if we have a valid intent, but warn the user
-                    st.markdown("---")
-                    st.info(f"Showing **{intent['intent'].replace('_', ' ').title()}** based on my best guess:")
-
-                # 3. Execute Analysis based on Intent
+                # 2. Execute Analysis
+                metrics = {}
                 if intent['intent'] == 'pipeline_analysis':
                     metrics = system['bi'].analyze_pipeline(data['deals'], intent.get('filters'))
-                    st.write(f"### Pipeline Analysis")
-                    
-                    c1, c2 = st.columns(2)
-                    c1.metric("Total Pipeline Value", f"₹{metrics.get('total_pipeline_value', 0):,.0f}")
-                    c2.metric("Deal Count", metrics.get('deal_count', 0))
-                    
-                    st.subheader("Top Deals")
-                    st.dataframe(pd.DataFrame(metrics.get('top_deals', [])), use_container_width=True)
-                    
                 elif intent['intent'] == 'revenue_analysis':
                     metrics = system['bi'].revenue_analysis(data['orders'], intent.get('filters'))
-                    st.write(f"### Revenue Analysis")
-                    
-                    c1, c2 = st.columns(2)
-                    c1.metric("Total Billed", f"₹{metrics.get('total_billed', 0):,.0f}")
-                    c2.metric("Total Collected", f"₹{metrics.get('total_collected', 0):,.0f}")
-                    
-                    st.subheader("Revenue by Sector")
-                    st.bar_chart(metrics.get('revenue_by_sector', {}))
-                    
                 elif intent['intent'] == 'risk_assessment':
-                    risks = system['bi'].risk_assessment(data['deals'], data['orders'])
-                    st.write(f"### Risk Assessment")
-                    st.write(f"Found {risks['total_risks']} potential risks.")
-                    
-                    risk_df = pd.DataFrame(risks['risk_list'])
-                    if not risk_df.empty:
-                        st.dataframe(risk_df, use_container_width=True)
-                    else:
-                        st.success("No major risks found!")
-                    
-                else:
-                    st.write("I analyzed your data based on your query.")
-                    st.info("Showing general dashboard for context:")
-                    render_pipeline_dashboard(data, system['bi'])
+                    metrics = system['bi'].risk_assessment(data['deals'], data['orders'])
+                
+                # 3. Render Result
+                render_analysis_result(intent, metrics, system, data, key_prefix="current")
+                
+                # 4. Add to history
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "intent": intent,
+                    "metrics": metrics
+                })
 
 
 if __name__ == "__main__":

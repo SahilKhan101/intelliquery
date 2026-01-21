@@ -23,10 +23,19 @@ class QueryParser:
         self.model = genai.GenerativeModel(self.model_name)
         logger.info(f"Initialized Gemini SDK with model: {self.model_name}")
     
-    def parse_query(self, user_query: str) -> Dict[str, Any]:
+    def parse_query(self, user_query: str, history: List[Dict] = None) -> Dict[str, Any]:
         """
-        Parse natural language query into structured format
+        Parse natural language query into structured format with conversation context
         """
+        history_text = ""
+        if history:
+            history_text = "\nRecent Conversation History:\n"
+            # Only take last 5 messages to keep prompt concise
+            for msg in history[-5:]:
+                role = "User" if msg['role'] == 'user' else "Assistant"
+                content = msg.get('content', f"Intent: {msg.get('intent', {}).get('intent')}")
+                history_text += f"{role}: {content}\n"
+
         prompt = f"""You are a business intelligence assistant parsing natural language queries about deals and work orders.
 
 The user has access to two datasets:
@@ -37,7 +46,9 @@ Common sectors: Mining, Powerline, Energy
 Common statuses: Open, Closed, Won, Lost
 Common probabilities: High, Medium, Low
 
-Parse the following query and extract the required fields into a JSON object.
+{history_text}
+
+Parse the following query and extract the required fields into a JSON object. If the query is a follow-up, use the conversation history for context.
 
 Query: {user_query}
 
