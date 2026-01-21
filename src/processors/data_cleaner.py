@@ -21,30 +21,24 @@ class DataCleaner:
     def _extract_column_value(self, column_values: List[Dict], column_id: str) -> Any:
         """
         Extract value from monday.com column_values array
-        
-        Args:
-            column_values: List of column value objects from monday.com
-            column_id: Column ID to extract
-            
-        Returns:
-            Column value (text or parsed JSON value)
         """
         for col in column_values:
             if col.get('id') == column_id:
                 text = col.get('text', '')
                 value = col.get('value')
+                col_type = col.get('type', '')
                 
-                # Try to parse JSON value if available
-                if value:
+                # For Date columns, prefer the ISO date from value
+                if 'date' in col_type and value:
                     try:
                         parsed = json.loads(value)
-                        # For date columns, extract the 'date' field
                         if isinstance(parsed, dict) and 'date' in parsed:
                             return parsed['date']
-                        return parsed
                     except json.JSONDecodeError:
                         pass
                 
+                # For other columns (Status, Dropdown, Numbers, Text), use the text representation
+                # This ensures we get "Won" instead of {"index": 1}
                 return text if text else None
         return None
     
@@ -64,20 +58,21 @@ class DataCleaner:
         for item in raw_items:
             column_values = item.get('column_values', [])
             
+            # Map using actual Column IDs from the board
             deal = {
                 'item_id': item.get('id'),
-                'deal_code': item.get('name'),  # Item name is often the deal code
-                'owner_code': self._extract_column_value(column_values, 'person'),
-                'client_code': self._extract_column_value(column_values, 'text'),
-                'deal_status': self._extract_column_value(column_values, 'status'),
-                'close_date': self._extract_column_value(column_values, 'date'),
-                'closure_probability': self._extract_column_value(column_values, 'dropdown'),
-                'deal_value': self._extract_column_value(column_values, 'numbers'),
-                'tentative_close_date': self._extract_column_value(column_values, 'date4'),
-                'deal_stage': self._extract_column_value(column_values, 'status5'),
-                'product_deal': self._extract_column_value(column_values, 'text7'),
-                'sector': self._extract_column_value(column_values, 'text8'),
-                'created_date': self._extract_column_value(column_values, 'date9'),
+                'deal_code': item.get('name'),
+                'owner_code': self._extract_column_value(column_values, 'color_mkzt80xk'),      # Status
+                'client_code': self._extract_column_value(column_values, 'dropdown_mkztdhbj'),  # Dropdown
+                'deal_status': self._extract_column_value(column_values, 'color_mkztr5bp'),     # Status
+                'close_date': self._extract_column_value(column_values, 'date_mkztnnvm'),       # Date
+                'closure_probability': self._extract_column_value(column_values, 'color_mkztdr2e'), # Status
+                'deal_value': self._extract_column_value(column_values, 'numeric_mkzt62xv'),    # Numbers
+                'tentative_close_date': self._extract_column_value(column_values, 'date_mkztwm4y'), # Date
+                'deal_stage': self._extract_column_value(column_values, 'color_mkztn0hm'),      # Status
+                'product_deal': self._extract_column_value(column_values, 'color_mkztv27h'),    # Status
+                'sector': self._extract_column_value(column_values, 'color_mkzt63yc'),          # Status
+                'created_date': self._extract_column_value(column_values, 'date_mkzt9470'),     # Date
             }
             deals.append(deal)
         
@@ -142,23 +137,24 @@ class DataCleaner:
         for item in raw_items:
             column_values = item.get('column_values', [])
             
+            # Map using actual Column IDs from the board
             order = {
                 'item_id': item.get('id'),
-                'deal_code': self._extract_column_value(column_values, 'text'),
-                'customer_code': self._extract_column_value(column_values, 'text0'),
-                'serial_number': item.get('name'),  # Serial # as item name
-                'nature_of_work': self._extract_column_value(column_values, 'dropdown'),
-                'execution_status': self._extract_column_value(column_values, 'status'),
-                'data_delivery_date': self._extract_column_value(column_values, 'date'),
-                'po_date': self._extract_column_value(column_values, 'date4'),
-                'document_type': self._extract_column_value(column_values, 'dropdown8'),
-                'sector': self._extract_column_value(column_values, 'text6'),
-                'type_of_work': self._extract_column_value(column_values, 'text7'),
-                'amount_excl_gst': self._extract_column_value(column_values, 'numbers'),
-                'amount_incl_gst': self._extract_column_value(column_values, 'numbers9'),
-                'billed_value_excl_gst': self._extract_column_value(column_values, 'numbers0'),
-                'collected_amount': self._extract_column_value(column_values, 'numbers4'),
-                'project_stage': self._extract_column_value(column_values, 'status8'),
+                'deal_code': item.get('name'),                                      # Name is Deal Code
+                'customer_code': self._extract_column_value(column_values, 'dropdown_mkzswfd3'), # Dropdown
+                'serial_number': self._extract_column_value(column_values, 'dropdown_mkzsbpwq'), # Dropdown
+                'nature_of_work': self._extract_column_value(column_values, 'color_mkzs26xj'),   # Status
+                'execution_status': self._extract_column_value(column_values, 'color_mkzsxp43'), # Status
+                'data_delivery_date': self._extract_column_value(column_values, 'date_mkzsr10s'),# Date
+                'po_date': self._extract_column_value(column_values, 'date_mkzstah5'),           # Date
+                'document_type': self._extract_column_value(column_values, 'color_mkzsma6z'),    # Status
+                'sector': self._extract_column_value(column_values, 'color_mkzsygsk'),           # Status
+                'type_of_work': self._extract_column_value(column_values, 'color_mkzsapc4'),     # Status
+                'amount_excl_gst': self._extract_column_value(column_values, 'numeric_mkzs9ynk'),# Numbers
+                'amount_incl_gst': self._extract_column_value(column_values, 'numeric_mkzsn76q'),# Numbers
+                'billed_value_excl_gst': self._extract_column_value(column_values, 'numeric_mkzsyfer'), # Numbers
+                'collected_amount': self._extract_column_value(column_values, 'numeric_mkzsnk93'),      # Numbers
+                'project_stage': self._extract_column_value(column_values, 'color_mkzsdpbq'),    # Status
             }
             orders.append(order)
         

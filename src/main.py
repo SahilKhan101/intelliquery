@@ -10,6 +10,12 @@ import logging
 import time
 
 # Import internal modules
+import sys
+import os
+
+# Add project root to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from config.settings import Config
 from src.connectors.monday_client import MondayClient
 from src.processors.data_cleaner import DataCleaner
