@@ -123,13 +123,13 @@ def render_pipeline_dashboard(data: Dict, bi_engine: BIEngine, key_prefix: str =
         st.markdown("##### Deals by Stage")
         stage_df = pd.DataFrame(list(metrics['deals_by_stage'].items()), columns=['Stage', 'Count'])
         fig = px.bar(stage_df, x='Count', y='Stage', orientation='h', color='Count')
-        st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_pipeline_stage")
+        st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_pipeline_stage")
         
     with col2:
         st.markdown("##### Probability Distribution")
         prob_df = pd.DataFrame(list(metrics['deals_by_probability'].items()), columns=['Probability', 'Count'])
         fig = px.pie(prob_df, values='Count', names='Probability', hole=0.4)
-        st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_pipeline_prob")
+        st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_pipeline_prob")
 
 
 def render_revenue_dashboard(data: Dict, bi_engine: BIEngine, key_prefix: str = ""):
@@ -151,13 +151,13 @@ def render_revenue_dashboard(data: Dict, bi_engine: BIEngine, key_prefix: str = 
         st.markdown("##### Revenue by Sector")
         sector_df = pd.DataFrame(list(metrics['revenue_by_sector'].items()), columns=['Sector', 'Revenue'])
         fig = px.pie(sector_df, values='Revenue', names='Sector')
-        st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_rev_sector")
+        st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_rev_sector")
         
     with col2:
         st.markdown("##### Monthly Billing Trend")
         trend_df = pd.DataFrame(list(metrics['monthly_trend'].items()), columns=['Month', 'Billed'])
         fig = px.line(trend_df, x='Month', y='Billed', markers=True)
-        st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_rev_trend")
+        st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_rev_trend")
 
 
 def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict, key_prefix: str = ""):
@@ -189,10 +189,10 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
             trend_df = pd.DataFrame(list(metrics['monthly_trend'].items()), columns=['Month', 'Count'])
             # Sort by date if possible (Month Year format is tricky to sort, but px usually handles it or we can sort by date)
             fig = px.line(trend_df, x='Month', y='Count', markers=True)
-            st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_pipeline_trend")
+            st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_pipeline_trend")
 
         st.subheader("Top Deals")
-        st.dataframe(pd.DataFrame(metrics.get('top_deals', [])), use_container_width=True)
+        st.dataframe(pd.DataFrame(metrics.get('top_deals', [])), width='stretch')
         
     elif intent['intent'] == 'revenue_analysis':
         st.write(f"### Revenue Analysis")
@@ -213,7 +213,7 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
         if sector_data:
             sector_df = pd.DataFrame(list(sector_data.items()), columns=['Sector', 'Revenue'])
             fig = px.bar(sector_df, x='Sector', y='Revenue', color='Sector')
-            st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_analysis_rev_sector")
+            st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_analysis_rev_sector")
         
     elif intent['intent'] == 'risk_assessment':
         st.write(f"### Risk Assessment")
@@ -221,7 +221,7 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
         
         risk_df = pd.DataFrame(metrics.get('risk_list', []))
         if not risk_df.empty:
-            st.dataframe(risk_df, use_container_width=True)
+            st.dataframe(risk_df, width='stretch')
         else:
             st.success("No major risks found!")
             
