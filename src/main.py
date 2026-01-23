@@ -166,8 +166,15 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
     # Generate natural language insights
     if user_query and not metrics.get('error'):
         with st.spinner("Generating insights..."):
-            insights = system['parser'].generate_insights(user_query, intent, metrics)
-            st.info(f"💡 **Insights:** {insights}")
+            try:
+                insights = system['parser'].generate_insights(user_query, intent, metrics)
+                if insights and "Analysis complete" not in insights:
+                    st.info(f"💡 **Insights:** {insights}")
+                else:
+                    st.warning("⚠️ Could not generate insights (API key issue?). Showing metrics below.")
+            except Exception as e:
+                logger.error(f"Failed to display insights: {e}")
+                st.warning(f"⚠️ Insight generation failed: {str(e)}")
     
     # Handle Clarification
     if intent.get('clarification_needed') and intent.get('clarifying_questions'):
