@@ -235,6 +235,37 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
         st.write("I analyzed your data based on your query.")
         st.info("Showing general dashboard for context:")
         render_pipeline_dashboard(data, system['bi'], key_prefix=f"{key_prefix}_fallback")
+    
+    # Suggest follow-up questions
+    if not metrics.get('error'):
+        st.markdown("---")
+        with st.expander("💡 You might also ask...", expanded=False):
+            suggestions = []
+            
+            if intent['intent'] == 'pipeline_analysis':
+                suggestions = [
+                    "What are the high-risk deals?",
+                    "Show me revenue for this sector",
+                    "Which deals have been open the longest?",
+                    "Compare pipeline across all sectors"
+                ]
+            elif intent['intent'] == 'revenue_analysis':
+                suggestions = [
+                    "Which clients haven't paid yet?",
+                    "Show me the pipeline for this sector",
+                    "What's our collection rate trend?",
+                    "Compare revenue across sectors"
+                ]
+            elif intent['intent'] == 'risk_assessment':
+                suggestions = [
+                    "Show me the pipeline health",
+                    "What's our total revenue?",
+                    "Which sector has the most risks?",
+                    "Show me high-value deals"
+                ]
+            
+            for suggestion in suggestions:
+                st.markdown(f"- {suggestion}")
 
 
 def main():
