@@ -129,3 +129,48 @@ Return as a JSON array of strings.
         except Exception as e:
             logger.error(f"Failed to generate clarifying questions: {e}")
             return ["Could you be more specific?"]
+    
+    def generate_insights(self, query: str, intent: Dict, metrics: Dict) -> str:
+        """
+        Generate natural language insights from calculated metrics
+        """
+        # Format metrics into readable text
+        metrics_summary = f"""
+User Query: {query}
+Intent: {intent.get('intent')}
+
+Calculated Metrics:
+{str(metrics)[:1000]}  # Truncate to avoid token limits
+"""
+        
+        prompt = f"""You are a business analyst explaining data insights to a founder.
+
+{metrics_summary}
+
+Provide a concise 2-3 sentence natural language summary of these metrics. 
+Focus on:
+- Key takeaways (what stands out)
+- Business implications (what this means)
+- Actionable insights (what to do about it)
+
+Write in a conversational, professional tone. Be specific about numbers.
+"""
+        
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.3,
+                    max_output_tokens=200
+                )
+            )
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"Failed to generate insights: {e}")
+            # Fallback to simple summary
+            if intent.get('intent') == 'pipeline_analysis':
+                return f"Found {metrics.get('total_deals', 0)} deals with a total pipeline value of ₹{metrics.get('total_pipeline_value', 0):,.0f}."
+            elif intent.get('intent') == 'revenue_analysis':
+                return f"Total billed: ₹{metrics.get('total_billed', 0):,.0f}, Total collected: ₹{metrics.get('total_collected', 0):,.0f}."
+            else:
+                return "Analysis complete. Review the metrics below for details."

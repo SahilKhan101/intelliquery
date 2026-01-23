@@ -160,8 +160,14 @@ def render_revenue_dashboard(data: Dict, bi_engine: BIEngine, key_prefix: str = 
         st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_rev_trend")
 
 
-def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict, key_prefix: str = ""):
+def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict, key_prefix: str = "", user_query: str = ""):
     """Render the analysis result based on intent and metrics"""
+    
+    # Generate natural language insights
+    if user_query and not metrics.get('error'):
+        with st.spinner("Generating insights..."):
+            insights = system['parser'].generate_insights(user_query, intent, metrics)
+            st.info(f"💡 **Insights:** {insights}")
     
     # Handle Clarification
     if intent.get('clarification_needed') and intent.get('clarifying_questions'):
@@ -279,7 +285,14 @@ def main():
                 st.write(message["content"])
             else:
                 # Render the stored analysis result with unique key
-                render_analysis_result(message["intent"], message["metrics"], system, data, key_prefix=f"hist_{idx}")
+                render_analysis_result(
+                    message["intent"], 
+                    message["metrics"], 
+                    system, 
+                    data, 
+                    key_prefix=f"hist_{idx}",
+                    user_query=st.session_state.messages[idx-1]["content"] if idx > 0 else ""
+                )
     
     # Query Interface
     query = st.chat_input("Ask a question about your business data...")
@@ -335,7 +348,7 @@ def main():
                     metrics = system['bi'].risk_assessment(data['deals'], data['orders'])
                 
                 # 3. Render Result
-                render_analysis_result(intent, metrics, system, data, key_prefix="current")
+                render_analysis_result(intent, metrics, system, data, key_prefix="current", user_query=query)
                 
                 # 4. Add to history
                 st.session_state.messages.append({
