@@ -45,18 +45,31 @@ class BIEngine:
             owner = filters['owner'].lower()
             filtered_df = filtered_df[filtered_df['owner_code'].str.lower().str.contains(owner, na=False)]
             
+        # Date filter
+        date_col = None
+        if 'close_date' in filtered_df.columns:
+            date_col = 'close_date'
+        elif 'po_date' in filtered_df.columns:
+            date_col = 'po_date'
+            
+        if date_col:
+            if filters.get('date_range_start'):
+                try:
+                    start_date = pd.to_datetime(filters['date_range_start'])
+                    filtered_df = filtered_df[filtered_df[date_col] >= start_date]
+                except: pass
+                
+            if filters.get('date_range_end'):
+                try:
+                    end_date = pd.to_datetime(filters['date_range_end'])
+                    filtered_df = filtered_df[filtered_df[date_col] <= end_date]
+                except: pass
+                
         return filtered_df
 
     def analyze_pipeline(self, deals_df: pd.DataFrame, filters: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Analyze sales pipeline health
-        
-        Args:
-            deals_df: Cleaned deals DataFrame
-            filters: Optional filters
-            
-        Returns:
-            Dictionary containing pipeline metrics
         """
         df = self._filter_dataframe(deals_df, filters or {})
         
@@ -74,6 +87,15 @@ class BIEngine:
         # Breakdown by probability
         prob_breakdown = df['closure_probability'].value_counts().to_dict()
         
+        # Monthly trend for deals
+        monthly_trend = {}
+        if 'close_date' in df.columns:
+            # Filter out NaT for trend
+            trend_df = df[df['close_date'].notna()].copy()
+            if not trend_df.empty:
+                trend_df['month_year'] = trend_df['close_date'].apply(get_month_year)
+                monthly_trend = trend_df.groupby('month_year').size().to_dict()
+
         # Weighted pipeline value
         weighted_value = 0
         prob_weights = {'High': 0.8, 'Medium': 0.5, 'Low': 0.2, 'Unknown': 0.1}
@@ -92,19 +114,13 @@ class BIEngine:
             "weighted_pipeline_value": weighted_value,
             "deals_by_stage": stage_breakdown,
             "deals_by_probability": prob_breakdown,
+            "monthly_trend": monthly_trend,
             "top_deals": df.nlargest(5, 'deal_value')[['deal_code', 'client_code', 'deal_value', 'closure_probability']].to_dict('records')
         }
 
     def revenue_analysis(self, orders_df: pd.DataFrame, filters: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Analyze revenue trends
-        
-        Args:
-            orders_df: Cleaned work orders DataFrame
-            filters: Optional filters
-            
-        Returns:
-            Dictionary containing revenue metrics
         """
         df = self._filter_dataframe(orders_df, filters or {})
         
@@ -120,13 +136,15 @@ class BIEngine:
         # Revenue by sector
         sector_revenue = df.groupby('sector')['billed_value_excl_gst'].sum().sort_values(ascending=False).to_dict()
         
-        # Monthly trend (using PO date as proxy for booking if invoice date missing)
-        if 'po_date' in df.columns:
-            df['month_year'] = df['po_date'].apply(get_month_year)
-            monthly_trend = df.groupby('month_year')['billed_value_excl_gst'].sum().to_dict()
-        else:
-            monthly_trend = {}
-            
+        # Monthly trend
+        monthly_trend = {}
+        date_col = 'po_date' if 'po_date' in df.columns else None
+        if date_col:
+            trend_df = df[df[date_col].notna()].copy()
+            if not trend_df.empty:
+                trend_df['month_year'] = trend_df[date_col].apply(get_month_year)
+                monthly_trend = trend_df.groupby('month_year')['billed_value_excl_gst'].sum().to_dict()
+                
         return {
             "total_billed": total_billed,
             "total_collected": total_collected,

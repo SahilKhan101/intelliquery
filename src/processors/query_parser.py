@@ -3,6 +3,7 @@ Query parser using Google Gemini for natural language understanding
 """
 import logging
 import json
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 import google.generativeai as genai
 from config.settings import Config
@@ -36,11 +37,13 @@ class QueryParser:
                 content = msg.get('content', f"Intent: {msg.get('intent', {}).get('intent')}")
                 history_text += f"{role}: {content}\n"
 
+        today = datetime.now().strftime("%Y-%m-%d")
         prompt = f"""You are a business intelligence assistant parsing natural language queries about deals and work orders.
+Current Date: {today}
 
 The user has access to two datasets:
-1. **Deals**: Contains sales pipeline data with fields like deal_code, client_code, deal_status, closure_probability, deal_value, sector, deal_stage, owner_code
-2. **Work Orders**: Contains project execution data with fields like deal_code, execution_status, amount, billed_value, collected_amount, sector, project_stage
+1. **Deals**: Contains sales pipeline data with fields like deal_code, client_code, deal_status, closure_probability, deal_value, sector, deal_stage, owner_code, close_date, created_date
+2. **Work Orders**: Contains project execution data with fields like deal_code, execution_status, amount, billed_value, collected_amount, sector, project_stage, po_date
 
 Common sectors: Mining, Powerline, Energy
 Common statuses: Open, Closed, Won, Lost
@@ -48,14 +51,16 @@ Common probabilities: High, Medium, Low
 
 {history_text}
 
-Parse the following query and extract the required fields into a JSON object. If the query is a follow-up, use the conversation history for context.
+Parse the following query and extract the required fields into a JSON object. 
+If the query is a follow-up, use the conversation history for context.
+If the user specifies a year (e.g., "in 2025"), set date_range_start to "2025-01-01" and date_range_end to "2025-12-31".
 
 Query: {user_query}
 
 Required JSON Structure:
 {{
     "intent": "primary intent (pipeline_analysis, revenue_analysis, risk_assessment, sector_performance, deal_details, general_query)",
-    "filters": {{ "sector": "...", "status": "...", "probability": "...", "date_range_start": "...", "date_range_end": "...", "owner": "..." }},
+    "filters": {{ "sector": "...", "status": "...", "probability": "...", "date_range_start": "YYYY-MM-DD", "date_range_end": "YYYY-MM-DD", "owner": "..." }},
     "metrics": ["list", "of", "metrics"],
     "aggregation": "sum/count/average/trend/comparison",
     "time_period": "today/this_week/this_month/this_quarter/this_year/last_6_months/custom",

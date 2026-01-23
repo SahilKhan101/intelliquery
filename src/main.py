@@ -178,6 +178,13 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
         c1.metric("Total Pipeline Value", f"₹{metrics.get('total_pipeline_value', 0):,.0f}")
         c2.metric("Deal Count", metrics.get('deal_count', 0))
         
+        if metrics.get('monthly_trend'):
+            st.subheader("Monthly Deal Trend")
+            trend_df = pd.DataFrame(list(metrics['monthly_trend'].items()), columns=['Month', 'Count'])
+            # Sort by date if possible (Month Year format is tricky to sort, but px usually handles it or we can sort by date)
+            fig = px.line(trend_df, x='Month', y='Count', markers=True)
+            st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_pipeline_trend")
+
         st.subheader("Top Deals")
         st.dataframe(pd.DataFrame(metrics.get('top_deals', [])), use_container_width=True)
         
