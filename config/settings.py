@@ -18,20 +18,12 @@ def get_config_value(key: str, default=None):
     try:
         import streamlit as st
         if hasattr(st, 'secrets') and key in st.secrets:
-            value = st.secrets[key]
-            print(f"✓ Loaded {key} from Streamlit secrets")  # Debug
-            return value
-    except Exception as e:
-        print(f"✗ Could not load {key} from Streamlit secrets: {e}")  # Debug
+            return st.secrets[key]
+    except:
         pass
     
     # Fallback to environment variables (local development)
-    value = os.getenv(key, default)
-    if value:
-        print(f"✓ Loaded {key} from environment variable")  # Debug
-    else:
-        print(f"✗ {key} not found in secrets or env")  # Debug
-    return value
+    return os.getenv(key, default)
 
 class Config:
     """Application configuration"""
