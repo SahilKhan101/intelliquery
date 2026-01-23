@@ -40,8 +40,9 @@ st.markdown("""
     .main-header {
         font-size: 2.5rem;
         font-weight: 700;
-        color: #1E1E1E;
+        color: #FFFFFF;
         margin-bottom: 1rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
     .metric-card {
         background-color: #f8f9fa;
@@ -171,6 +172,14 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
                 
                 # Check if insight is valid and complete
                 if insights and len(insights) > 20 and "Analysis complete" not in insights:
+                    # Convert markdown to HTML (bold, italic)
+                    import re
+                    insights_html = insights
+                    # Convert **bold** to <strong>bold</strong>
+                    insights_html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', insights_html)
+                    # Convert *italic* to <em>italic</em>
+                    insights_html = re.sub(r'\*(.+?)\*', r'<em>\1</em>', insights_html)
+                    
                     # Use custom styled container with good contrast for dark/light themes
                     st.markdown(
                         f"""
@@ -181,7 +190,7 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
                             border-radius: 4px;
                             margin: 8px 0;
                         ">
-                            <strong>💡 Insights:</strong> {insights}
+                            <strong>💡 Insights:</strong> {insights_html}
                         </div>
                         """,
                         unsafe_allow_html=True
