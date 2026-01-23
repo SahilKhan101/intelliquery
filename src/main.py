@@ -168,13 +168,19 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
         with st.spinner("Generating insights..."):
             try:
                 insights = system['parser'].generate_insights(user_query, intent, metrics)
-                if insights and "Analysis complete" not in insights:
+                
+                # Check if insight is valid and complete
+                if insights and len(insights) > 20 and "Analysis complete" not in insights:
                     st.info(f"💡 **Insights:** {insights}")
+                elif insights and len(insights) <= 20:
+                    # Truncated or incomplete response - show simple fallback
+                    logger.warning(f"Insight generation returned truncated response: {insights}")
+                    st.info(f"💡 Analysis complete. Review the metrics and charts below.")
                 else:
-                    st.warning("⚠️ Could not generate insights (API key issue?). Showing metrics below.")
+                    st.info(f"💡 Analysis complete. Review the metrics and charts below.")
             except Exception as e:
                 logger.error(f"Failed to display insights: {e}")
-                st.warning(f"⚠️ Insight generation failed: {str(e)}")
+                st.info(f"💡 Analysis complete. Review the metrics and charts below.")
     
     # Handle Clarification
     if intent.get('clarification_needed') and intent.get('clarifying_questions'):

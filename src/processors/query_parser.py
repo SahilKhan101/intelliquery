@@ -55,6 +55,13 @@ Parse the following query and extract the required fields into a JSON object.
 If the query is a follow-up, use the conversation history for context.
 If the user specifies a year (e.g., "in 2025"), set date_range_start to "2025-01-01" and date_range_end to "2025-12-31".
 
+**Common Query Patterns:**
+- "revenue trend" or "monthly revenue" → revenue_analysis (will show monthly_trend chart)
+- "pipeline" or "deals" → pipeline_analysis  
+- "risks" or "at risk" → risk_assessment
+- "sector performance" or "compare sectors" → sector_performance
+- Revenue uses billed_value_excl_gst from Work Orders by default
+
 Query: {user_query}
 
 Required JSON Structure:
