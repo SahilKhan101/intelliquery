@@ -371,6 +371,8 @@ def main():
             
         st.markdown("### 🛠️ Settings")
         debug_mode = st.checkbox("Debug Mode", value=Config.DEBUG_MODE)
+        enable_insights = st.checkbox("Generate AI Insights", value=True,
+                                      help="Natural language explanations (paid tier - no limits)")
         
         st.markdown("---")
         st.markdown("### 💡 Sample Queries")
