@@ -237,6 +237,75 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
             st.dataframe(risk_df, width='stretch')
         else:
             st.success("No major risks found!")
+    
+    elif intent['intent'] == 'sector_performance':
+        st.write(f"### Sector Performance Analysis")
+        st.caption("📊 Cross-board analytics combining deals and work orders")
+        
+        sector_data = metrics.get('sector_performance', [])
+        if sector_data:
+            df = pd.DataFrame(sector_data)
+            
+            # Summary metrics
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Sectors Analyzed", len(df))
+            c2.metric("Total Pipeline", f"₹{df['pipeline_value'].sum():,.0f}")
+            c3.metric("Total Revenue", f"₹{df['billed_revenue'].sum():,.0f}")
+            
+            # Detailed table
+            st.subheader("Performance by Sector")
+            st.dataframe(df, width='stretch')
+            
+            # Comparison chart
+            st.subheader("Sector Comparison")
+            fig = px.bar(df, x='sector', 
+                        y=['pipeline_value', 'billed_revenue', 'collected_revenue'],
+                        title="Pipeline vs Revenue by Sector",
+                        barmode='group',
+                        labels={'value': 'Amount (₹)', 'variable': 'Metric'})
+            st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_sector_perf")
+        else:
+            st.warning("No sector data available for comparison.")
+    
+    elif intent['intent'] == 'resource_utilization':
+        st.write(f"### Resource Utilization")
+        
+        owner_data = metrics.get('owner_performance', [])
+        if owner_data:
+            df = pd.DataFrame(owner_data)
+            
+            c1, c2 = st.columns(2)
+            c1.metric("Total Owners/Resources", metrics.get('total_owners', 0))
+            c2.metric("Avg Deals per Owner", f"{metrics.get('avg_deals_per_owner', 0):.1f}")
+            
+            st.subheader("Performance by Owner")
+            st.dataframe(df, width='stretch')
+            
+            # Workload distribution chart
+            fig = px.bar(df, x='owner', y='deal_count', 
+                        title="Deal Distribution by Owner",
+                        labels={'deal_count': 'Number of Deals', 'owner': 'Owner'})
+            st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_resource_dist")
+        else:
+            st.info("No owner assignment data available.")
+    
+    elif intent['intent'] == 'operational_metrics':
+        st.write(f"### Operational Metrics")
+        
+        if metrics.get('conversion_rate') is not None:
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Conversion Rate", f"{metrics.get('conversion_rate', 0):.1f}%")
+            c2.metric("Won Deals", metrics.get('won_deals', 0))
+            c3.metric("Loss Rate", f"{metrics.get('loss_rate', 0):.1f}%")
+        
+        if metrics.get('avg_cycle_days'):
+            st.subheader("Deal Cycle Time")
+            c1, c2 = st.columns(2)
+            c1.metric("Average Days", f"{metrics.get('avg_cycle_days', 0):.0f}")
+            c2.metric("Median Days", f"{metrics.get('median_cycle_days', 0):.0f}")
+            st.caption(f"Based on {metrics.get('deals_with_cycle_data', 0)} closed deals")
+        else:
+            st.info("Cycle time data not available (missing close dates).")
             
     else:
         st.write("I analyzed your data based on your query.")
@@ -384,6 +453,12 @@ def main():
                     metrics = system['bi'].revenue_analysis(data['orders'], intent.get('filters'))
                 elif intent['intent'] == 'risk_assessment':
                     metrics = system['bi'].risk_assessment(data['deals'], data['orders'])
+                elif intent['intent'] == 'sector_performance':
+                    metrics = system['bi'].sector_performance(data['combined'])
+                elif intent['intent'] == 'resource_utilization':
+                    metrics = system['bi'].resource_utilization(data['deals'])
+                elif intent['intent'] == 'operational_metrics':
+                    metrics = system['bi'].operational_metrics(data['deals'])
                 
                 # 3. Render Result
                 render_analysis_result(intent, metrics, system, data, key_prefix="current", user_query=query)

@@ -305,4 +305,67 @@ class BIEngine:
         # Calculate conversion/efficiency metrics
         metrics['avg_deal_size'] = metrics['pipeline_value'] / metrics['deal_count']
         
-        return metrics.to_dict('records')
+        return {"sector_performance": metrics.to_dict('records')}
+    
+    def resource_utilization(self, deals_df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Analyze workload and performance by owner/resource
+        """
+        if 'owner_code' not in deals_df.columns:
+            return {"error": "No owner data available"}
+        
+        # Filter out null owners
+        df = deals_df[deals_df['owner_code'].notna()].copy()
+        
+        if df.empty:
+            return {"error": "No owner assignments found"}
+        
+        # Aggregate by owner
+        owner_stats = df.groupby('owner_code').agg({
+            'deal_value': ['sum', 'mean', 'count'],
+            'deal_code': 'count'
+        }).reset_index()
+        
+        owner_stats.columns = ['owner', 'total_value', 'avg_deal_size', 'value_count', 'deal_count']
+        owner_stats = owner_stats[['owner', 'total_value', 'avg_deal_size', 'deal_count']]
+        
+        # Sort by total value
+        owner_stats = owner_stats.sort_values('total_value', ascending=False)
+        
+        return {
+            "owner_performance": owner_stats.to_dict('records'),
+            "total_owners": len(owner_stats),
+            "avg_deals_per_owner": owner_stats['deal_count'].mean()
+        }
+    
+    def operational_metrics(self, deals_df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Calculate operational efficiency metrics
+        """
+        metrics_result = {}
+        
+        # Deal cycle time (created to closed)
+        if 'created_date' in deals_df.columns and 'close_date' in deals_df.columns:
+            closed = deals_df[(deals_df['close_date'].notna()) & (deals_df['created_date'].notna())].copy()
+            if not closed.empty:
+                closed['cycle_days'] = (closed['close_date'] - closed['created_date']).dt.days
+                metrics_result['avg_cycle_days'] = float(closed['cycle_days'].mean())
+                metrics_result['median_cycle_days'] = float(closed['cycle_days'].median())
+                metrics_result['deals_with_cycle_data'] = len(closed)
+            else:
+                metrics_result['avg_cycle_days'] = None
+                metrics_result['median_cycle_days'] = None
+        
+        # Conversion rate (won/total)
+        if 'deal_status' in deals_df.columns:
+            total_deals = len(deals_df)
+            won_deals = len(deals_df[deals_df['deal_status'].str.lower() == 'won'])
+            lost_deals = len(deals_df[deals_df['deal_status'].str.lower() == 'lost'])
+            
+            metrics_result['total_deals'] = total_deals
+            metrics_result['won_deals'] = won_deals
+            metrics_result['lost_deals'] = lost_deals
+            metrics_result['conversion_rate'] = (won_deals / total_deals * 100) if total_deals > 0 else 0
+            metrics_result['loss_rate'] = (lost_deals / total_deals * 100) if total_deals > 0 else 0
+        
+        return metrics_result

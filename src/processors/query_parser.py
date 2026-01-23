@@ -59,7 +59,7 @@ Query: {user_query}
 
 Required JSON Structure:
 {{
-    "intent": "primary intent (pipeline_analysis, revenue_analysis, risk_assessment, sector_performance, deal_details, general_query)",
+    "intent": "primary intent (pipeline_analysis, revenue_analysis, risk_assessment, sector_performance, resource_utilization, operational_metrics, deal_details, general_query)",
     "filters": {{ "sector": "...", "status": "...", "probability": "...", "date_range_start": "YYYY-MM-DD", "date_range_end": "YYYY-MM-DD", "owner": "..." }},
     "metrics": ["list", "of", "metrics"],
     "aggregation": "sum/count/average/trend/comparison",
