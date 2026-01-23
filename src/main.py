@@ -227,12 +227,20 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
         c2.metric("Total Collected", f"₹{metrics.get('total_collected', 0):,.0f}")
         
         st.subheader("Revenue by Sector")
-        # Use Plotly for better control and unique keys
         sector_data = metrics.get('revenue_by_sector', {})
         if sector_data:
             sector_df = pd.DataFrame(list(sector_data.items()), columns=['Sector', 'Revenue'])
             fig = px.bar(sector_df, x='Sector', y='Revenue', color='Sector')
             st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_analysis_rev_sector")
+        
+        # Monthly revenue trend
+        monthly_data = metrics.get('monthly_trend', {})
+        if monthly_data:
+            st.subheader("Monthly Revenue Trend")
+            trend_df = pd.DataFrame(list(monthly_data.items()), columns=['Month', 'Revenue'])
+            fig = px.line(trend_df, x='Month', y='Revenue', markers=True,
+                         title="Monthly Billing Trend")
+            st.plotly_chart(fig, width='stretch', key=f"{key_prefix}_revenue_monthly_trend")
         
     elif intent['intent'] == 'risk_assessment':
         st.write(f"### Risk Assessment")
