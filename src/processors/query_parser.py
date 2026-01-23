@@ -168,7 +168,7 @@ Write in a conversational, professional tone. Be specific about numbers.
                 prompt,
                 generation_config=genai.types.GenerationConfig(
                     temperature=0.3,
-                    max_output_tokens=2000  # Increased for complete insights
+                    max_output_tokens=5000  # Increased for complete insights
                 )
             )
             return response.text.strip()

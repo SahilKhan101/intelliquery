@@ -171,7 +171,21 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
                 
                 # Check if insight is valid and complete
                 if insights and len(insights) > 20 and "Analysis complete" not in insights:
-                    st.info(f"💡 **Insights:** {insights}")
+                    # Use custom styled container with good contrast for dark/light themes
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background-color: rgba(33, 150, 243, 0.1);
+                            border-left: 4px solid #2196F3;
+                            padding: 12px 16px;
+                            border-radius: 4px;
+                            margin: 8px 0;
+                        ">
+                            <strong>💡 Insights:</strong> {insights}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
                 elif insights and len(insights) <= 20:
                     # Truncated or incomplete response - show simple fallback
                     logger.warning(f"Insight generation returned truncated response: {insights}")
