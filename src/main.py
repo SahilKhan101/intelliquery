@@ -174,6 +174,12 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
     if intent['intent'] == 'pipeline_analysis':
         st.write(f"### Pipeline Analysis")
         
+        # Show data quality warnings if present
+        if metrics.get('data_quality', {}).get('warnings'):
+            with st.expander("⚠️ Data Quality Warnings", expanded=False):
+                for warning in metrics['data_quality']['warnings']:
+                    st.warning(warning)
+        
         c1, c2 = st.columns(2)
         c1.metric("Total Pipeline Value", f"₹{metrics.get('total_pipeline_value', 0):,.0f}")
         c2.metric("Deal Count", metrics.get('deal_count', 0))
@@ -190,6 +196,12 @@ def render_analysis_result(intent: Dict, metrics: Dict, system: Dict, data: Dict
         
     elif intent['intent'] == 'revenue_analysis':
         st.write(f"### Revenue Analysis")
+        
+        # Show data quality warnings if present
+        if metrics.get('data_quality', {}).get('warnings'):
+            with st.expander("⚠️ Data Quality Warnings", expanded=False):
+                for warning in metrics['data_quality']['warnings']:
+                    st.warning(warning)
         
         c1, c2 = st.columns(2)
         c1.metric("Total Billed", f"₹{metrics.get('total_billed', 0):,.0f}")

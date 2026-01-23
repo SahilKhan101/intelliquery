@@ -116,10 +116,30 @@ class DataCleaner:
                 lambda x: prob_map.get(str(x).lower().strip(), x) if pd.notna(x) else 'Unknown'
             )
         
+        # Track duplicates
+        self._check_duplicates(df, 'Deals', 'deal_code')
+        
         # Track data quality issues
         self._track_quality_issues(df, 'Deals')
         
         return df
+    
+    def _check_duplicates(self, df: pd.DataFrame, dataset_name: str, key_column: str):
+        """Detect and report duplicate entries"""
+        if key_column not in df.columns:
+            return
+            
+        duplicates = df[df.duplicated(subset=[key_column], keep=False)]
+        if not duplicates.empty:
+            duplicate_keys = duplicates[key_column].unique().tolist()
+            self.data_quality_issues.append({
+                'dataset': dataset_name,
+                'issue_type': 'duplicates',
+                'column': key_column,
+                'count': len(duplicates),
+                'affected_values': duplicate_keys[:5],  # Show first 5
+                'severity': 'High' if len(duplicates) > 10 else 'Medium'
+            })
     
     def normalize_work_orders(self, raw_items: List[Dict[str, Any]]) -> pd.DataFrame:
         """
@@ -187,6 +207,9 @@ class DataCleaner:
             if col in df.columns:
                 df[col] = df[col].apply(lambda x: str(x).strip() if pd.notna(x) and x != '' else None)
         
+        # Track duplicates
+        self._check_duplicates(df, 'Work Orders', 'deal_code')
+        
         # Track data quality issues
         self._track_quality_issues(df, 'Work Orders')
         
@@ -196,18 +219,41 @@ class DataCleaner:
         """
         Join deals with work orders on deal code
         
-        Args:
-            deals_df: Cleaned deals DataFrame
-            orders_df: Cleaned work orders DataFrame
-            
-        Returns:
-            Combined DataFrame
+        Handles one-to-many relationships by aggregating work orders
         """
         logger.info("Joining deals and work orders...")
         
+        # Check for one-to-many relationships
+        order_counts = orders_df['deal_code'].value_counts()
+        multi_orders = order_counts[order_counts > 1]
+        
+        if not multi_orders.empty:
+            logger.warning(f"Found {len(multi_orders)} deals with multiple work orders. Aggregating...")
+            self.data_quality_issues.append({
+                'dataset': 'Join',
+                'issue_type': 'one_to_many',
+                'column': 'deal_code',
+                'count': len(multi_orders),
+                'message': f"{len(multi_orders)} deals have multiple work orders",
+                'severity': 'Medium'
+            })
+            
+            # Aggregate numeric columns for deals with multiple orders
+            numeric_cols = ['amount_excl_gst', 'amount_incl_gst', 'billed_value_excl_gst', 'collected_amount']
+            agg_dict = {col: 'sum' for col in numeric_cols if col in orders_df.columns}
+            
+            # Keep first for non-numeric
+            for col in orders_df.columns:
+                if col not in agg_dict and col != 'deal_code':
+                    agg_dict[col] = 'first'
+            
+            orders_agg = orders_df.groupby('deal_code').agg(agg_dict).reset_index()
+        else:
+            orders_agg = orders_df
+        
         # Left join to keep all deals
         combined = deals_df.merge(
-            orders_df,
+            orders_agg,
             left_on='deal_code',
             right_on='deal_code',
             how='left',
@@ -229,28 +275,46 @@ class DataCleaner:
                 if pct > 5:  # Only track if >5% missing
                     self.data_quality_issues.append({
                         'dataset': dataset_name,
+                        'issue_type': 'missing_data',
                         'column': col,
                         'missing_count': int(missing_count),
-                        'missing_percentage': round(pct, 2)
+                        'missing_percentage': round(pct, 2),
+                        'severity': 'High' if pct > 25 else 'Medium' if pct > 10 else 'Low'
                     })
     
     def get_quality_report(self) -> str:
         """
         Generate human-readable data quality report
-        
-        Returns:
-            Formatted quality report string
         """
         if not self.data_quality_issues:
             return "✅ Data quality is excellent! No significant issues found."
         
         report = ["⚠️ **Data Quality Issues:**\n"]
         
-        for issue in self.data_quality_issues:
-            report.append(
-                f"- {issue['dataset']} → `{issue['column']}`: "
-                f"{issue['missing_percentage']}% missing ({issue['missing_count']} records)"
-            )
+        # Group by severity
+        high = [i for i in self.data_quality_issues if i.get('severity') == 'High']
+        medium = [i for i in self.data_quality_issues if i.get('severity') == 'Medium']
+        low = [i for i in self.data_quality_issues if i.get('severity') == 'Low']
+        
+        for severity, issues in [('🔴 High', high), ('🟡 Medium', medium), ('🟢 Low', low)]:
+            if issues:
+                report.append(f"\n**{severity} Priority:**")
+                for issue in issues:
+                    if issue.get('issue_type') == 'missing_data':
+                        report.append(
+                            f"- {issue['dataset']} → `{issue['column']}`: "
+                            f"{issue['missing_percentage']}% missing ({issue['missing_count']} records)"
+                        )
+                    elif issue.get('issue_type') == 'duplicates':
+                        affected = ', '.join(str(x) for x in issue.get('affected_values', []))
+                        report.append(
+                            f"- {issue['dataset']} → Duplicates in `{issue['column']}`: "
+                            f"{issue['count']} rows (e.g., {affected})"
+                        )
+                    elif issue.get('issue_type') == 'one_to_many':
+                        report.append(
+                            f"- {issue['dataset']} → {issue.get('message', 'Conflict detected')}"
+                        )
         
         return "\n".join(report)
     

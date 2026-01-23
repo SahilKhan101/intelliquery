@@ -74,12 +74,33 @@ class BIEngine:
         df = self._filter_dataframe(deals_df, filters or {})
         
         if df.empty:
-            return {"error": "No data found matching filters"}
-            
-        # Calculate key metrics
+            return {"error": "No data found matching filters", "data_quality": {"total_records": 0}}
+        
+        # Track data quality
+        total_records = len(df)
+        null_counts = {}
+        warnings = []
+        
+        # Count nulls in critical fields
+        critical_fields = ['deal_value', 'closure_probability', 'deal_stage', 'close_date']
+        for field in critical_fields:
+            if field in df.columns:
+                null_count = df[field].isna().sum()
+                if null_count > 0:
+                    null_counts[field] = null_count
+                    pct = (null_count / total_records) * 100
+                    if pct > 10:
+                        warnings.append(f"{field}: {pct:.1f}% missing ({null_count} records)")
+        
+        # Calculate key metrics (pandas automatically excludes NaN)
         total_deals = len(df)
         total_value = df['deal_value'].sum()
         avg_deal_value = df['deal_value'].mean()
+        valid_values = df['deal_value'].notna().sum()
+        
+        # Log warnings
+        if warnings:
+            logger.warning(f"Data quality issues in pipeline analysis: {'; '.join(warnings)}")
         
         # Breakdown by stage
         stage_breakdown = df['deal_stage'].value_counts().to_dict()
@@ -115,7 +136,13 @@ class BIEngine:
             "deals_by_stage": stage_breakdown,
             "deals_by_probability": prob_breakdown,
             "monthly_trend": monthly_trend,
-            "top_deals": df.nlargest(5, 'deal_value')[['deal_code', 'client_code', 'deal_value', 'closure_probability']].to_dict('records')
+            "top_deals": df.nlargest(5, 'deal_value')[['deal_code', 'client_code', 'deal_value', 'closure_probability']].to_dict('records'),
+            "data_quality": {
+                "total_records": total_records,
+                "null_counts": null_counts,
+                "warnings": warnings,
+                "values_used_in_calculations": valid_values
+            }
         }
 
     def revenue_analysis(self, orders_df: pd.DataFrame, filters: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -125,13 +152,35 @@ class BIEngine:
         df = self._filter_dataframe(orders_df, filters or {})
         
         if df.empty:
-            return {"error": "No data found matching filters"}
+            return {"error": "No data found matching filters", "data_quality": {"total_records": 0}}
+        
+        # Track data quality
+        total_records = len(df)
+        null_counts = {}
+        warnings = []
+        
+        # Count nulls in critical fields
+        critical_fields = ['billed_value_excl_gst', 'collected_amount', 'po_date']
+        for field in critical_fields:
+            if field in df.columns:
+                null_count = df[field].isna().sum()
+                if null_count > 0:
+                    null_counts[field] = null_count
+                    pct = (null_count / total_records) * 100
+                    if pct > 10:
+                        warnings.append(f"{field}: {pct:.1f}% missing ({null_count} records)")
+        
+        if warnings:
+            logger.warning(f"Data quality issues in revenue analysis: {'; '.join(warnings)}")
             
         # Key metrics
         total_billed = df['billed_value_excl_gst'].sum()
         total_collected = df['collected_amount'].sum()
         total_receivable = total_billed - total_collected
         collection_rate = (total_collected / total_billed * 100) if total_billed > 0 else 0
+        
+        valid_billed = df['billed_value_excl_gst'].notna().sum()
+        valid_collected = df['collected_amount'].notna().sum()
         
         # Revenue by sector
         sector_revenue = df.groupby('sector')['billed_value_excl_gst'].sum().sort_values(ascending=False).to_dict()
@@ -151,7 +200,14 @@ class BIEngine:
             "total_receivable": total_receivable,
             "collection_rate": collection_rate,
             "revenue_by_sector": sector_revenue,
-            "monthly_trend": monthly_trend
+            "monthly_trend": monthly_trend,
+            "data_quality": {
+                "total_records": total_records,
+                "null_counts": null_counts,
+                "warnings": warnings,
+                "billed_values_used": valid_billed,
+                "collected_values_used": valid_collected
+            }
         }
 
     def risk_assessment(self, deals_df: pd.DataFrame, orders_df: pd.DataFrame) -> Dict[str, Any]:
